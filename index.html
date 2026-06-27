@@ -595,12 +595,36 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
   .rack { min-height: 70px; padding: 8px; }
 }
 @media (max-width: 640px) and (orientation: portrait) {
-  #game-screen { padding: 4px; }
-  .player-chip { min-width: 100%; flex: 1 1 100%; }
+  #game-screen { padding: 4px; display: flex; flex-direction: column; height: 100dvh; overflow: hidden; }
+  .topbar { flex-direction: column; align-items: stretch; gap: 4px; }
+  .players-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; width: 100%; }
+  .player-chip { min-width: 0; flex: none; padding: 4px 8px; border-radius: 12px; gap: 6px; }
+  .player-chip .pc-avatar-img { width: 30px; height: 30px; }
+  .pc-name { font-size: 12px; }
+  .pc-tiles { font-size: 10px; }
+  .pc-skill { font-size: 9px; }
+  .timer-wrap { display: flex; justify-content: space-between; align-items: center; width: 100%; margin-top: 2px; }
+  .timer-circle { width: 34px; height: 34px; font-size: 14px; }
+  .board-wrap { flex: 1; min-height: 0; }
   .chat-input-wrapper { bottom: 12px; width: 95%; }
-  .chat-container { width: 180px; right: 8px; top: 70px; }
+  .chat-container { width: 180px; right: 8px; top: 110px; }
   .bottom-area { gap: 6px; }
-  .dock { justify-content: center; }
+  .rack { 
+    display: flex; 
+    flex-wrap: wrap; 
+    flex-direction: column; 
+    align-content: flex-start; 
+    overflow-x: auto; 
+    overflow-y: hidden;
+    height: 128px; 
+    padding: 8px; 
+    gap: 6px;
+    justify-content: flex-start;
+  }
+  .tile { width: 32px; height: 46px; font-size: 18px; margin: 0; }
+  .dock { justify-content: center; gap: 6px; }
+  .dock-btn { min-width: 64px; height: 40px; padding: 0 8px; font-size: 11px; border-radius: 12px; }
+  .dock-btn .ico { font-size: 15px; }
 }
 @media (max-width: 900px) and (orientation: landscape) {
   #game-screen { padding: 4px; }
@@ -1257,7 +1281,37 @@ function isValidRun(tiles){
   return false;
 }
 function isValidSet(tiles){ return isValidGroup(tiles)||isValidRun(tiles); }
-function setScore(tiles){ return tiles.reduce((sum,t)=> sum + (t.isJoker?0:t.number), 0); }
+
+/* 조커가 대체하는 정확한 숫자를 계산하여 세트의 실점수를 합산해 반환 */
+function getSetTotalScore(tiles) {
+  if (tiles.length === 0) return 0;
+  if (isValidGroup(tiles)) {
+    const nonJoker = tiles.find(t => !t.isJoker);
+    const val = nonJoker ? nonJoker.number : 0;
+    return tiles.length * val;
+  }
+  if (isValidRun(tiles)) {
+    const nonJokers = tiles.filter(t => !t.isJoker);
+    if (nonJokers.length === 0) return 0;
+    const L = tiles.length;
+    const nums = nonJokers.map(t => t.number);
+    let sStart = 1;
+    for (let s = 1; s + L - 1 <= 13; s++) {
+      if (nums.every(n => n >= s && n <= s + L - 1)) {
+        sStart = s;
+        break;
+      }
+    }
+    let sum = 0;
+    for (let i = 0; i < L; i++) {
+      sum += (sStart + i);
+    }
+    return sum;
+  }
+  return tiles.reduce((sum, t) => sum + (t.isJoker ? 0 : t.number), 0);
+}
+
+function setScore(tiles){ return getSetTotalScore(tiles); }
 
 /* ====================================================
    게임 인프라 구동부
@@ -1615,8 +1669,14 @@ function attemptEndTurn(isAI=false){
     advanceTurn(); return true;
   }
   if(!p.melded){
-    const score = setScore(placed);
-    if(score<30){ if(!isAI) toast(`첫 멜드는 30점 이상이어야 해요! (현재 ${score}점)`); return false; }
+    let meldScore = 0;
+    s.board.forEach(g => {
+      const hasPlaced = g.tiles.some(t => placed.some(pt => pt.id === t.id));
+      if (hasPlaced) {
+        meldScore += setScore(g.tiles);
+      }
+    });
+    if(meldScore<30){ if(!isAI) toast(`첫 멜드는 30점 이상이어야 해요! (현재 ${meldScore}점)`); return false; }
     p.melded = true;
   }
   p.score += setScore(placed);
@@ -1886,18 +1946,70 @@ document.getElementById('btn-tip').onclick = ()=>{
 };
 
 function findHintInRack(rack){
-  const byNum = {}; rack.forEach(t=>{ if(!t.isJoker) (byNum[t.number]=byNum[t.number]||[]).push(t); });
+  const jokers = rack.filter(t => t.isJoker);
+  const jokerCount = jokers.length;
+
+  // 1. 그룹(Group) 매칭 검사
+  const byNum = {}; 
+  rack.forEach(t=>{ if(!t.isJoker) (byNum[t.number]=byNum[t.number]||[]).push(t); });
   for(const num in byNum){
-    const seen = new Set(); const uniq=[]; byNum[num].forEach(t=>{ if(!seen.has(t.color)){ seen.add(t.color); uniq.push(t); } });
+    const seen = new Set(); const uniq=[]; 
+    byNum[num].forEach(t=>{ if(!seen.has(t.color)){ seen.add(t.color); uniq.push(t); } });
+    
+    // 순수 그룹 3장 이상
     if(uniq.length>=3) return uniq.slice(0,4);
+    
+    // 일반 2장 + 조커 1장 이상이 있어 3장을 만들 수 있는 경우
+    if(uniq.length === 2 && jokerCount >= 1) {
+      return [...uniq, jokers[0]];
+    }
   }
+
+  // 2. 런(Run) 매칭 검사
   for(const color of COLORS){
-    const tiles = rack.filter(t=>!t.isJoker && t.color===color).sort((a,b)=>a.number-b.number); let run=[];
-    for(let i=0; i<tiles.length; i++){
-      if(run.length===0 || tiles[i].number===run[run.length-1].number+1) run.push(tiles[i]);
-      else { if(run.length>=3) return run; run=[tiles[i]]; }
+    const tiles = rack.filter(t=>!t.isJoker && t.color===color).sort((a,b)=>a.number-b.number);
+    const uniqTiles = [];
+    const seenNums = new Set();
+    tiles.forEach(t => {
+      if(!seenNums.has(t.number)) {
+        seenNums.add(t.number);
+        uniqTiles.push(t);
+      }
+    });
+
+    // 2-1) 순수 런 검사
+    let run = [];
+    for(let i=0; i<uniqTiles.length; i++){
+      if(run.length===0 || uniqTiles[i].number === run[run.length-1].number+1) {
+        run.push(uniqTiles[i]);
+      } else { 
+        if(run.length>=3) return run; 
+        run=[uniqTiles[i]]; 
+      }
     }
     if(run.length>=3) return run;
+
+    // 2-2) 조커 대입 런 검사
+    if (jokerCount >= 1 && uniqTiles.length >= 2) {
+      for (let i = 0; i < uniqTiles.length; i++) {
+        for (let j = i + 1; j < uniqTiles.length; j++) {
+          const t1 = uniqTiles[i];
+          const t2 = uniqTiles[j];
+          const diff = t2.number - t1.number;
+
+          if (diff === 1) {
+            if (t2.number < 13) {
+              return [t1, t2, jokers[0]];
+            } else if (t1.number > 1) {
+              return [jokers[0], t1, t2];
+            }
+          }
+          else if (diff === 2) {
+            return [t1, jokers[0], t2];
+          }
+        }
+      }
+    }
   }
   return null;
 }
