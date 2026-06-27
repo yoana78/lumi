@@ -1150,9 +1150,15 @@ document.getElementById('btn-connect').onclick = ()=>{
   });
 
   socket.on('matchRequested', (data)=>{
+    const opts = data.roomOptions || {};
     showModal(`
       <h2>⚔️ 대결 신청 알림</h2>
       <p><strong>${data.fromNickname}</strong>님이 당신에게 대결을 신청했습니다!</p>
+      <div style="background:rgba(0,0,0,0.2); border-radius:12px; padding:12px; margin:10px 0; font-size:13px; text-align:left; line-height:1.6; color:#e0d2ff;">
+        • 플레이어 수: ${opts.numPlayers || 4}인<br>
+        • 제한 시간: ${opts.timeLimit || 45}초<br>
+        • 조커큐브 개수: ${opts.jokerCount || 2}개
+      </div>
       <div class="modal-actions">
         <button class="jelly-btn green-btn" id="btn-accept-match">수락</button>
         <button class="jelly-btn red-btn" id="btn-refuse-match" style="padding:12px 26px; border-radius:999px; font-size:16px;">거절</button>
@@ -1160,7 +1166,8 @@ document.getElementById('btn-connect').onclick = ()=>{
     `);
     document.getElementById('btn-accept-match').onclick = () => {
       if (Game && Game.state) { Game.state.gameOver = true; clearInterval(Game.timerId); }
-      socket.emit('matchResponse', { targetId: data.fromId, accepted: true, roomOptions: Lobby });
+      // 신청한 사람이 설정한 roomOptions를 그대로 전달하여 룰 불일치 원천 차단
+      socket.emit('matchResponse', { targetId: data.fromId, accepted: true, roomOptions: opts });
       hideModal();
     };
     document.getElementById('btn-refuse-match').onclick = () => { socket.emit('matchResponse', { targetId: data.fromId, accepted: false }); hideModal(); };
@@ -1258,7 +1265,11 @@ document.getElementById('chat-input').addEventListener('keypress', e => {
 function askMatchRequest(targetId, nickname) {
   showModal(`<h2>⚔️ 대결 신청</h2><p>${nickname}님께 대결을 신청하시겠습니까?</p>
     <div class="modal-actions"><button class="jelly-btn green-btn" id="btn-match-yes">네</button><button class="jelly-btn ghost" onclick="hideModal()">아니오</button></div>`);
-  document.getElementById('btn-match-yes').onclick = () => { socket.emit('requestMatch', { targetId: targetId }); showModal(`<h2>⏳ 응답 대기중</h2><p>${nickname}님의 수락을 기다리는 중입니다...</p>`); };
+  document.getElementById('btn-match-yes').onclick = () => { 
+    // 신청을 보낼 때 자신의 로비 설정(Lobby)을 탑재해서 전송
+    socket.emit('requestMatch', { targetId: targetId, roomOptions: Lobby }); 
+    showModal(`<h2>⏳ 응답 대기중</h2><p>${nickname}님의 수락을 기다리는 중입니다...</p>`); 
+  };
 }
 
 /* ====================================================
@@ -1331,6 +1342,9 @@ function setScore(tiles){ return getSetTotalScore(tiles); }
    게임 인프라 구동부
    ==================================================== */
 function initOnlineGame(roomPlayers, options, synchronizedDeck) {
+  // 온라인 매칭 시작 시 이전 로컬 세이브 데이터는 확실히 삭제하여 이어하기 버그 예방
+  localStorage.removeItem(SAVE_KEY);
+  
   Game.state = {
     players: roomPlayers, deck: synchronizedDeck, board: [], turnIndex: 0,
     timeLimit: options.timeLimit, timeLeft: options.timeLimit,
@@ -2029,17 +2043,39 @@ function findHintInRack(rack){
 }
 
 document.getElementById('btn-end').onclick = ()=> attemptEndTurn(false);
-document.getElementById('btn-lobby').onclick = ()=>{ if(confirm('로비로 돌아가시겠어요? 게임은 자동 저장됩니다.')){ saveGame(); backToLobby(); } };
+document.getElementById('btn-lobby').onclick = ()=>{
+  if (isOnlineGame) {
+    if (confirm('로비로 돌아가시겠어요? 온라인 대전 중 퇴장하시면 기권 처리됩니다.')) {
+      if(socket) socket.emit('surrender');
+      localStorage.removeItem(SAVE_KEY); // 세이브 완전 삭제
+      backToLobby();
+    }
+  } else {
+    if(confirm('로비로 돌아가시겠어요? 게임은 자동 저장됩니다.')){
+      saveGame();
+      backToLobby();
+    }
+  }
+};
 document.getElementById('btn-surrender').onclick = ()=>{
   showModal(`<h2>🏳️ 기권 확인</h2><p>정말 기권하시겠습니까?</p><div class="modal-actions"><button class="jelly-btn red-btn" id="btn-surrender-yes" style="border-radius:999px; padding:12px 26px;">네</button><button class="jelly-btn ghost" onclick="hideModal()">아니오</button></div>`);
-  document.getElementById('btn-surrender-yes').onclick = () => { if(socket) socket.emit('surrender'); hideModal(); backToLobby(); };
+  document.getElementById('btn-surrender-yes').onclick = () => {
+    if (isOnlineGame && socket) socket.emit('surrender');
+    localStorage.removeItem(SAVE_KEY); // 세이브 완전 삭제
+    hideModal();
+    backToLobby();
+  };
 };
 
 function backToLobby(){
-  clearInterval(Game.timerId); isOnlineGame = false;
+  clearInterval(Game.timerId);
+  if (isOnlineGame) {
+    localStorage.removeItem(SAVE_KEY); // 온라인 상태에서 퇴장 시 이어하기 방지
+  }
+  isOnlineGame = false;
   document.getElementById('btn-surrender').style.display = 'none';
   document.getElementById('chat-container').classList.remove('show');
-  document.getElementById('chat-input-wrapper').classList.remove('show');
+  document.getElementById('chat-input-wrapper').style.display = 'none';
   comboCount = 0; lastValidSetTime = 0;
   showScreen('lobby-screen');
   document.getElementById('btn-continue').disabled = !localStorage.getItem(SAVE_KEY);
