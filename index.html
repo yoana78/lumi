@@ -2,17 +2,26 @@
 <html lang="ko">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <title>루미큐브 PLUS - 프리미엄 에디션</title>
 <meta name="description" content="캔디크러시 이상의 고퀄리티 루미큐브 프리미엄 게임. 온라인 멀티플레이, 다양한 아바타, 화려한 이펙트!">
-<!-- Google Fonts: Fredoka One (큐브 숫자), Outfit (UI 전반) -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fredoka+One&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-<!-- GmarketSans 폴백 -->
 <link rel="stylesheet" href="https://webfontworld.github.io/gmarket/GmarketSans.css">
-<!-- Tailwind CSS CDN v3 -->
 <script src="https://cdn.tailwindcss.com"></script>
+
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+<script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+<script>
+  window.addEventListener('DOMContentLoaded', function() {
+      MobileDragDrop.polyfill({
+          dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
+      });
+      window.addEventListener('touchmove', function() {}, {passive: false});
+  });
+</script>
+
 <script>
   tailwind.config = {
     theme: {
@@ -135,23 +144,23 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 /* ===== 로비 - 스크롤 없이 한 화면에 완전히 들어오도록 ===== */
 #lobby-screen{
   flex-direction:column; align-items:center;
-  justify-content:space-between; /* 로고 - 컨테이너 - 버튼을 균등 배분 */
-  padding:12px 16px 14px; gap:10px;
-  height:100%; overflow:hidden; /* 스크롤 완전 차단 */
+  justify-content:space-between;
+  padding:2vh 2vw; gap:2vh;
+  height:100%; overflow:hidden;
   min-height:0;
 }
-.lobby-container{display:flex; width:min(1040px,97vw); gap:14px; align-items:stretch; flex:1; min-height:0;}
-.lobby-left{flex:1.15; display:flex; flex-direction:column; gap:8px; min-height:0; overflow:hidden;}
-.lobby-right{flex:0.85; display:flex; flex-direction:column; gap:8px; min-height:0;}
+.lobby-container{display:flex; width:min(1200px, 98vw); gap:14px; align-items:stretch; flex:1; min-height:0; height:100%;}
+.lobby-left{flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; overflow:hidden;}
+.lobby-right{flex:1; display:flex; flex-direction:column; gap:12px; min-height:0; height:100%;}
 
-.logo-wrap{text-align:center; flex-shrink:0;}
-.logo{font-size:34px; font-weight:800; letter-spacing:1px;
+.logo-wrap{text-align:center; flex-shrink:0; padding-top:10px;}
+.logo{font-size: clamp(20px, 3.4vw, 32px); font-weight:800; letter-spacing:1px;
   text-shadow:0 3px 0 var(--purple-d), 0 6px 14px rgba(0,0,0,.45);
   color:#ffffff; animation:logoBounce 2.6s ease-in-out infinite; font-family:'Outfit', sans-serif; line-height:1;}
 .logo span.heart{display:inline-block; color:#ff1f3d; animation:heartBob 1s ease-in-out infinite;}
 @keyframes logoBounce{0%,100%{transform:translateY(0) rotate(0);}50%{transform:translateY(-4px) rotate(-1deg);}}
 @keyframes heartBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-4px);}}
-.logo-sub{font-size:11px; color:#cdb6f5; letter-spacing:3px; margin-top:1px; font-weight:600;}
+.logo-sub{font-size:clamp(9px, 1.5vw, 13px); color:#cdb6f5; letter-spacing:3px; margin-top:3px; font-weight:600;}
 
 /* 강화된 글래스모피즘 - 패딩 최적화로 한 화면에 들어오게 */
 .lobby-card{
@@ -159,14 +168,19 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
   border:1px solid rgba(255,255,255,.1);
   border-top: 1px solid rgba(255,255,255,.28);
   border-left: 1px solid rgba(255,255,255,.28);
-  border-radius:22px; padding:12px 16px; backdrop-filter:blur(20px); -webkit-backdrop-filter: blur(20px);
+  border-radius:22px; padding:clamp(10px, 2vh, 20px) clamp(12px, 2vw, 24px); backdrop-filter:blur(20px); -webkit-backdrop-filter: blur(20px);
   box-shadow:0 10px 30px rgba(0,0,0,.35), inset 0 0 10px rgba(255,255,255,0.05);
   flex-shrink:0;
 }
-.lobby-card h3{margin:0 0 8px; font-size:14px; color:var(--gold); letter-spacing:.5px; font-weight:700;}
+.lobby-card.settings-card {
+  flex: 1; /* Left and Right bottom align */
+  display: flex;
+  flex-direction: column;
+}
+.lobby-card h3{margin:0 0 8px; font-size:clamp(13px, 1.8vw, 16px); color:var(--gold); letter-spacing:.5px; font-weight:700;}
 
 /* 아바타 그리드 - 컴팩트하게 */
-.avatar-grid{display:grid; grid-template-columns:repeat(2,1fr); gap:7px;}
+.avatar-grid{display:grid; grid-template-columns:repeat(2, 1fr); gap:8px;}
 .avatar-card{
   position:relative; background:linear-gradient(160deg, rgba(255,255,255,.15), rgba(255,255,255,.04));
   border-radius:14px; padding:7px; border:2px solid rgba(255,255,255,.13);
@@ -177,16 +191,16 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
   border-color:var(--gold); box-shadow:0 0 0 2px rgba(255,210,76,.35), 0 0 18px rgba(255,210,76,.5);
   background:linear-gradient(160deg, rgba(255,210,76,.22), rgba(255,255,255,.06));
 }
-.avatar-img{width:40px; height:40px; border-radius:10px; object-fit:cover; background:#fff; filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
+.avatar-img{width:clamp(26px, 3.4vw, 34px); height:clamp(26px, 3.4vw, 34px); border-radius:9px; object-fit:cover; background:#fff; filter:drop-shadow(0 2px 4px rgba(0,0,0,.4));}
 .avatar-details{flex:1;}
-.avatar-name{font-size:13px; font-weight:700; color:#fff;}
-.avatar-stat{font-size:10px; color:var(--gold); margin-top:1px; line-height:1.3;}
+.avatar-name{font-size:clamp(11px, 1.5vw, 14px); font-weight:700; color:#fff;}
+.avatar-stat{font-size:clamp(9px, 1.2vw, 11px); color:var(--gold); margin-top:1px; line-height:1.3;}
 
 /* 닉네임 - 컴팩트 */
 .nickname-block{display:flex; gap:8px; margin-top:3px;}
 .nickname-input{
   flex:1; background:rgba(0,0,0,0.32); border:1px solid rgba(255,255,255,0.22); border-top-color:rgba(0,0,0,.5); border-left-color:rgba(0,0,0,.5); border-radius:11px;
-  padding:8px 13px; color:#fff; font-size:13px; font-family:inherit; outline:none;
+  padding:8px 13px; color:#fff; font-size:14px; font-family:inherit; outline:none;
   box-shadow: inset 0 2px 5px rgba(0,0,0,.3);
 }
 .nickname-input::placeholder{color:rgba(255,255,255,.4);}
@@ -213,10 +227,9 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 .online-user.self-entry{cursor:default; opacity:0.75;}
 .online-user.self-entry:hover{background:rgba(255,255,255,.07); border-color:transparent; transform:none; box-shadow:none;}
 
-.row-flex{display:flex; gap:12px; flex-wrap:wrap;}
-.field-block{flex:1; min-width:120px;}
-.field-block label{display:block; font-size:12px; color:#d9c9f7; margin-bottom:6px; font-weight:600;}
-.lobby-actions{display:flex; gap:12px; justify-content:center; width:100%; flex-shrink:0;}
+.field-block{flex:1;}
+.field-block label{display:block; font-size:clamp(11px, 1.5vw, 13px); color:#d9c9f7; margin-bottom:6px; font-weight:600;}
+.lobby-actions{display:flex; gap:12px; justify-content:center; width:100%; flex-shrink:0; padding-bottom: 10px;}
 
 .bounce-pop { animation: popBounce 0.4s cubic-bezier(0.175,0.885,0.32,1.275) forwards; }
 @keyframes popBounce {
@@ -224,7 +237,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 }
 
 /* ===== 게임 화면 ===== */
-#game-screen{flex-direction:column; padding:10px 14px; gap:10px;}
+#game-screen{flex-direction:column; padding:10px 8px; gap:8px;}
 .topbar{display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; z-index:5;}
 .players-row{display:flex; gap:12px; flex-wrap:wrap;}
 
@@ -233,7 +246,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
   padding:8px 16px 8px 8px; border:2px solid transparent; transition:all .3s cubic-bezier(0.175,0.885,0.32,1.275); cursor:pointer; min-width:178px; flex:1;
   backdrop-filter:blur(10px);
 }
-.player-chip .pc-avatar-img{width:44px; height:44px; border-radius:50%; object-fit:cover; background:#fff; animation:idleBob 2.2s ease-in-out infinite; box-shadow:0 4px 12px rgba(0,0,0,.42);}
+.player-chip .pc-avatar-img{width:38px; height:38px; border-radius:50%; object-fit:cover; background:#fff; animation:idleBob 2.2s ease-in-out infinite; box-shadow:0 4px 12px rgba(0,0,0,.42);}
 .player-chip.active{border-color:var(--gold); box-shadow:0 0 22px rgba(210,76,255,.65), inset 0 0 12px rgba(255,210,76,.3); background:rgba(255,255,255,.16); transform:translateY(-2px);}
 .player-chip.active .pc-avatar-img{animation:idleBobActive 1s ease-in-out infinite;}
 @keyframes idleBob{0%,100%{transform:translateY(0);}50%{transform:translateY(-3px);}}
@@ -246,8 +259,8 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 /* 타이머 */
 .timer-wrap{display:flex; align-items:center; gap:10px;}
 .timer-circle{
-  width:52px; height:52px; border-radius:50%; display:flex; align-items:center; justify-content:center;
-  font-weight:700; font-size:18px; background:rgba(255,255,255,.16); border:3px solid var(--gold);
+  width:44px; height:44px; border-radius:50%; display:flex; align-items:center; justify-content:center;
+  font-weight:700; font-size:16px; background:rgba(255,255,255,.16); border:3px solid var(--gold);
   box-shadow:0 0 18px rgba(255,210,76,.65), inset 0 0 12px rgba(255,210,76,.3); backdrop-filter:blur(4px);
 }
 .timer-circle.danger{border-color:#ff4f6e; color:#ff4f6e; animation:blinkRed .5s infinite;}
@@ -298,24 +311,24 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 .group-handle{
   color:rgba(255,255,255,.4); font-size:24px; cursor:grab; padding:0 10px 0 6px;
   display:flex; align-items:center; justify-content:center; user-select:none;
-  transition: color .15s, transform .15s;
+  transition: color .15s, transform .15s; touch-action: none;
 }
 .group-handle:hover{color:var(--gold); transform:scale(1.22);}
 .group-handle:active{cursor:grabbing;}
 
 /* ===== 큐브(타일) - Fredoka One 폰트, 두꺼운 숫자 ===== */
 .tile{
-  width:46px; height:64px; border-radius:12px; display:flex; align-items:center; justify-content:center;
+  width:clamp(32px, 4.4vw, 40px); height:clamp(46px, 6.2vw, 56px); border-radius:11px; display:flex; align-items:center; justify-content:center;
   font-family:'Fredoka One', cursive;
-  font-weight:400; /* Fredoka One은 기본적으로 bold */
-  font-size:28px; /* 크고 시인성 좋게 */
+  font-weight:400; 
+  font-size:clamp(19px, 3vw, 24px);
   color:#fff;
   text-shadow:0 2px 4px rgba(0,0,0,.7), 0 0 8px rgba(0,0,0,.4);
   letter-spacing: -0.5px;
   margin: 0 3px;
   box-shadow:0 6px 0 rgba(0,0,0,.42), 0 10px 22px rgba(0,0,0,.52), inset 0 3px 7px rgba(255,255,255,.52), inset 0 -3px 7px rgba(0,0,0,.3);
   cursor:grab; user-select:none; transition:transform .15s cubic-bezier(0.175,0.885,0.32,1.275); position:relative; flex:none;
-  overflow:hidden;
+  overflow:hidden; touch-action: none;
   border: 1px solid rgba(255,255,255,.22);
 }
 /* 플라스틱 유리광 하이라이트 */
@@ -330,7 +343,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 .tile:active{cursor:grabbing; transform:translateY(4px); box-shadow:0 2px 0 rgba(0,0,0,.42), 0 4px 10px rgba(0,0,0,.52), inset 0 3px 7px rgba(255,255,255,.52), inset 0 -3px 7px rgba(0,0,0,.3);}
 .tile.dragging{opacity:.4; transform:scale(1.12);}
 
-/* 타일 색상별 - 채도 높고 컬러 반사광이 있는 그림자 */
+/* 타일 색상별 */
 .tile.red{
   background:linear-gradient(160deg, var(--red-a), var(--red-b));
   box-shadow:0 6px 0 rgba(180,30,50,.6), 0 10px 22px rgba(214,51,74,.4), inset 0 3px 7px rgba(255,200,200,.5), inset 0 -3px 7px rgba(100,0,0,.3);
@@ -355,7 +368,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 }
 
 /* ===== 하단 영역 ===== */
-.bottom-area{display:flex; flex-direction:column; gap:10px; align-items:stretch; position:relative; z-index:5;}
+.bottom-area{display:flex; flex-direction:column; gap:6px; align-items:stretch; position:relative; z-index:5;}
 .rack-wrap{width:100%;}
 .rack{
   display:flex; gap:8px; padding:12px; background:rgba(255,255,255,.08); border-radius:22px;
@@ -368,9 +381,9 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 .dock-left{display:flex; gap:10px;}
 .dock-right{display:flex; gap:10px;}
 .dock-btn{
-  min-width:78px;
-  background:rgba(255,255,255,.13); border-radius:18px; padding:10px 7px; font-weight:700; font-size:13px;
-  color:#fff; display:flex; flex-direction:column; align-items:center; gap:4px;
+  min-width:74px; height:52px;
+  background:rgba(255,255,255,.13); border-radius:18px; padding:0 14px; font-weight:700; font-size:13px;
+  color:#fff; display:flex; flex-direction:row; align-items:center; justify-content:center; gap:6px;
   box-shadow:0 6px 0 rgba(0,0,0,.3), inset 0 2px 5px rgba(255,255,255,.22); transition:transform .15s, filter .2s;
   border:1px solid rgba(255,255,255,.11); border-top-color:rgba(255,255,255,.32);
 }
@@ -406,30 +419,15 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 .modal-box p{color:#e7d9ff; font-size:15px; margin-bottom:18px; line-height:1.6;}
 .modal-actions{display:flex; gap:12px; justify-content:center; margin-top:12px;}
 
-/* ===== 사이드 패널 ===== */
-.left-side-panel {
-  position: fixed; left: 20px; bottom: 20px; display: none; flex-direction: row; gap: 12px; z-index: 40;
-}
-#game-screen.active ~ .left-side-panel,
-body:has(#game-screen.active) .left-side-panel { display: flex; }
-.side-btn {
-  background: rgba(255,255,255,.16);
-  border: 1px solid rgba(255,255,255,.22); border-top: 1px solid rgba(255,255,255,.42); border-left: 1px solid rgba(255,255,255,.42);
-  border-radius: 18px; padding: 12px 18px; font-family: 'Outfit', 'GmarketSans', sans-serif; font-weight: 600; font-size: 13px; color: #fff;
-  display: flex; flex-direction: row; align-items: center; gap: 8px;
-  box-shadow: 0 6px 18px rgba(0,0,0,.42); transition: background .2s, transform .2s cubic-bezier(0.175,0.885,0.32,1.275); cursor: pointer; backdrop-filter: blur(10px);
-}
-.side-btn:hover { background: rgba(255,255,255,.28); transform: translateY(-4px); }
-.side-btn .s-ico { font-size: 20px; }
-/* 기권 사이드 버튼 특별 스타일 */
-.side-btn.surrender-btn {
-  background: linear-gradient(160deg, rgba(255,120,120,.35), rgba(180,30,50,.35));
+/* ===== 기권 버튼(좌측 dock) 강조 스타일 ===== */
+.dock-btn.surrender-btn {
+  background: linear-gradient(160deg, rgba(255,120,120,.5), rgba(180,30,50,.5));
   border-color: rgba(255,100,100,.4);
+  box-shadow:0 6px 0 rgba(140,20,40,.6), inset 0 2px 5px rgba(255,255,255,.22);
 }
-.side-btn.surrender-btn:hover { background: linear-gradient(160deg, rgba(255,100,100,.55), rgba(180,30,50,.55)); }
+.dock-btn.surrender-btn:active { box-shadow:0 2px 0 rgba(140,20,40,.6), inset 0 2px 5px rgba(255,255,255,.22); }
 
 /* ===== 채팅 ===== */
-/* 채팅 메시지 로그: 보드 오른쪽 반투명 패널 */
 .chat-container {
   position: absolute; right: 14px; top: 14px; bottom: 14px; width: 240px;
   display: none; flex-direction: column; justify-content: flex-end; gap: 8px; z-index: 10; pointer-events: none;
@@ -447,13 +445,12 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
 .chat-msg {
   background: rgba(255,255,255,.1); padding: 8px 12px; border-radius: 12px; font-size: 13px; line-height: 1.5;
   max-width: 100%; align-self: flex-start; word-break: break-all; border:1px solid rgba(255,255,255,.1);
-  text-shadow: 0 1px 3px rgba(0,0,0,.8); /* 시안성 강화 */
+  text-shadow: 0 1px 3px rgba(0,0,0,.8); 
   color: #fff;
 }
 .chat-msg.mine { align-self: flex-end; background: linear-gradient(160deg, rgba(120,40,200,.88), rgba(70,20,130,.88)); border-color:rgba(255,255,255,.18); }
 .chat-msg strong { color: var(--gold); }
 
-/* 채팅 입력창: 화면 중앙 최하단 (완전 고정) */
 .chat-input-wrapper {
   position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); width: 380px; z-index: 50;
   display: none; background: rgba(255,255,255,.2); border: 1px solid rgba(255,255,255,.32); border-top:1px solid rgba(255,255,255,.52); border-left:1px solid rgba(255,255,255,.52);
@@ -584,17 +581,34 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
   100%{ opacity: 0; }
 }
 
-/* ===== 반응형 ===== */
-@media (max-width: 640px) {
-  .lobby-container{flex-direction:column;}
-  #game-screen { padding: 6px; }
-  .tile { width: 38px; height: 52px; font-size: 22px; }
-  .tile-group { min-height: 58px; padding: 6px; }
-  .rack { min-height: 68px; padding: 8px; }
+/* ===== 반응형 테블릿, 모바일 (적응형 UI) ===== */
+@media (max-width: 1024px) {
+  #lobby-screen { overflow-y: auto; padding-bottom: 40px; }
+  .lobby-container { flex-direction: column; height: auto; align-items: stretch; }
+  .lobby-left, .lobby-right { flex: none; width: 100%; height: auto; overflow: visible; }
+  .lobby-card.settings-card { height: auto; }
+}
+@media (max-width: 768px) {
+  .lobby-actions { padding-bottom: 20px; }
+  .tile { width: 34px; height: 48px; font-size: 20px; }
+  .tile-group { min-height: 60px; padding: 6px; }
+  .rack { min-height: 70px; padding: 8px; }
+}
+@media (max-width: 640px) and (orientation: portrait) {
+  #game-screen { padding: 4px; }
+  .player-chip { min-width: 100%; flex: 1 1 100%; }
+  .chat-input-wrapper { bottom: 12px; width: 95%; }
+  .chat-container { width: 180px; right: 8px; top: 70px; }
+  .bottom-area { gap: 6px; }
+  .dock { justify-content: center; }
+}
+@media (max-width: 900px) and (orientation: landscape) {
+  #game-screen { padding: 4px; }
   .player-chip { min-width: 140px; }
-  .left-side-panel { bottom: 10px; left: 10px; }
-  .chat-input-wrapper { bottom: 16px; width: 92%; }
-  .chat-container { width: 180px; right: 8px; }
+  .tile { width: 30px; height: 42px; font-size: 18px; }
+  .tile-group { min-height: 52px; padding: 4px; }
+  .rack { min-height: 60px; padding: 4px; }
+  .chat-input-wrapper { bottom: 10px; width: 80%; padding: 8px 16px;}
 }
 </style>
 <script>window.io = window.io || function() { return null; };</script>
@@ -605,14 +619,12 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
 <div id="particles"></div>
 <div class="toast" id="toast"></div>
 
-<!-- 콤보 이펙트 레이어 -->
 <div id="combo-overlay">
   <div class="combo-text" id="combo-text"></div>
 </div>
 <div id="fire-border"></div>
 <div id="flash-overlay"></div>
 
-<!-- 로비 화면 -->
 <div class="screen active" id="lobby-screen">
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
@@ -620,7 +632,6 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
   </div>
 
   <div class="lobby-container">
-    <!-- 왼쪽: 닉네임 + 아바타 + 게임 설정 -->
     <div class="lobby-left">
       <div class="lobby-card">
         <h3>📝 닉네임 설정</h3>
@@ -635,30 +646,29 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
         <div class="avatar-grid" id="avatar-grid"></div>
       </div>
 
-      <!-- 게임 설정 (원래 오른쪽에 있던 것들) -->
-      <div class="lobby-card">
+      <div class="lobby-card settings-card">
         <h3>⚙️ 게임 설정</h3>
-        <div style="display:flex; flex-direction:column; gap:14px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; flex:1; align-content: start; align-items: start;">
           <div class="field-block">
             <label>플레이어 수</label>
             <div class="pill-toggle" id="opt-players"></div>
           </div>
           <div class="field-block">
-            <label>제한 시간</label>
-            <div class="pill-toggle" id="opt-time"></div>
-          </div>
-          <div class="field-block">
             <label>조커큐브</label>
             <div class="pill-toggle" id="opt-joker"></div>
           </div>
+          <div class="field-block">
+            <label>제한 시간</label>
+            <div class="pill-toggle" id="opt-time"></div>
+          </div>
+          <div class="field-block"></div>
         </div>
       </div>
     </div>
 
-    <!-- 오른쪽: 실시간 온라인 유저 리스트 (높이 크게) -->
     <div class="lobby-right">
-      <div class="lobby-card" style="flex:1; display:flex; flex-direction:column;">
-        <h3>🌐 실시간 온라인 유저</h3>
+      <div class="lobby-card" style="flex:1; display:flex; flex-direction:column; height: 100%;">
+        <h3>🌐 실시간 온라인 접속 유저</h3>
         <div class="online-list" id="online-list">
           <div style="font-size:13px; color:rgba(255,255,255,0.5); text-align:center; padding:16px;">서버에 접속하면 유저 목록이 노출됩니다.</div>
         </div>
@@ -672,7 +682,6 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
   </div>
 </div>
 
-<!-- 게임 화면 -->
 <div class="screen" id="game-screen">
   <div class="topbar">
     <div class="players-row" id="players-row"></div>
@@ -685,13 +694,11 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
   <div class="board-wrap" id="board-wrap">
     <div class="board-area" id="board-area"></div>
     <div class="board-countdown" id="board-countdown"></div>
-    <!-- 채팅 메시지 로그: 보드 오른쪽 -->
     <div class="chat-container" id="chat-container">
        <div class="chat-messages" id="chat-messages"></div>
     </div>
   </div>
 
-  <!-- 채팅 입력창: 화면 중앙 최하단 -->
   <div class="chat-input-wrapper" id="chat-input-wrapper">
      <span style="font-size:20px; opacity:.7;">💬</span>
      <input type="text" id="chat-input" placeholder="엔터키를 눌러 대화하세요...">
@@ -703,7 +710,9 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
     </div>
     <div class="dock">
       <div class="dock-left">
-        <!-- 기권 버튼은 사이드 패널로 이동 -->
+        <button class="dock-btn" id="btn-theme-side"><span class="ico">🎨</span><span id="theme-label-side">테마</span></button>
+        <button class="dock-btn" id="btn-help-side"><span class="ico">❓</span>도움말</button>
+        <button class="dock-btn surrender-btn" id="btn-surrender" style="display:none;"><span class="ico">🏳️</span>기권</button>
       </div>
       <div class="dock-right">
         <button class="dock-btn" id="btn-sort"><span class="ico">🔀</span>정렬</button>
@@ -715,28 +724,10 @@ body:has(#game-screen.active) .left-side-panel { display: flex; }
   </div>
 </div>
 
-<!-- 일반 모달 -->
 <div class="modal-overlay" id="modal-overlay">
   <div class="modal-box bounce-pop" id="modal-box"></div>
 </div>
 
-<!-- 사이드 패널: 테마변경 + 게임방법 + 기권(온라인 시 표시) -->
-<div class="left-side-panel" id="left-side-panel">
-  <button class="side-btn" id="btn-theme-side">
-    <span class="s-ico">🎨</span>
-    <span id="theme-label-side">테마 변경</span>
-  </button>
-  <button class="side-btn" id="btn-help-side">
-    <span class="s-ico">❓</span>
-    <span>게임방법</span>
-  </button>
-  <button class="side-btn surrender-btn" id="btn-surrender" style="display:none;">
-    <span class="s-ico">🏳️</span>
-    <span>기권</span>
-  </button>
-</div>
-
-<!-- 도움말 모달 -->
 <div class="help-modal-overlay" id="help-modal-overlay">
   <div class="help-modal-box">
     <h2>📖 루미큐브 프리미엄 가이드</h2>
@@ -818,35 +809,28 @@ function playSound(type, comboCount = 0) {
   const now = ctx.currentTime;
 
   if (type === 'place') {
-    // 큐브 배치 성공: 팝 음 + 콤보 피치 체인
     const baseFreq = 440 + (comboCount * 110);
     playOscillator(ctx, 'sine', baseFreq, 0.18, 0.08, now);
     playOscillator(ctx, 'sine', baseFreq * 1.5, 0.1, 0.06, now + 0.04);
   } else if (type === 'turn_end') {
-    // 턴 종료 성공: 상쾌한 화음 (C4+E4)
     playOscillator(ctx, 'sine', 523.25, 0.2, 0.25, now);       // C5
     playOscillator(ctx, 'sine', 659.25, 0.15, 0.25, now + 0.05); // E5
     playOscillator(ctx, 'sine', 783.99, 0.12, 0.25, now + 0.1);  // G5
   } else if (type === 'timer_warn') {
-    // 시간 경고: 짧고 날카로운 비프
     playOscillator(ctx, 'square', 660, 0.12, 0.08, now);
   } else if (type === 'timer_danger') {
-    // 시간 위험: 더 급박한 더블 비프
     playOscillator(ctx, 'square', 880, 0.15, 0.06, now);
     playOscillator(ctx, 'square', 1100, 0.12, 0.06, now + 0.1);
   } else if (type === 'combo_fire') {
-    // ON FIRE 사운드
     playOscillator(ctx, 'sawtooth', 440, 0.25, 0.12, now);
     playOscillator(ctx, 'sawtooth', 660, 0.2, 0.12, now + 0.08);
     playOscillator(ctx, 'sawtooth', 880, 0.18, 0.15, now + 0.16);
   } else if (type === 'combo_amazing') {
-    // AMAZING 사운드: 찬란한 아르페지오
     const freqs = [523, 659, 784, 1047, 1319];
     freqs.forEach((f, i) => {
       playOscillator(ctx, 'sine', f, 0.22, 0.2, now + i * 0.07);
     });
   } else if (type === 'game_start') {
-    // 게임 시작: 저음 → 고음 솟구치는 팡! 파업음
     playOscillator(ctx, 'triangle', 220, 0.3, 0.08, now);
     playOscillator(ctx, 'triangle', 330, 0.28, 0.08, now + 0.06);
     playOscillator(ctx, 'sine', 523, 0.35, 0.12, now + 0.12);
@@ -872,40 +856,35 @@ function playOscillator(ctx, type, freq, gain, duration, startTime) {
 
 /* ====================================================
    🔥 콤보 이펙트 시스템
-   - 유효한 세트(isValidSet)를 완성했을 때만 발동
-   - 10초 이내 연속 완성 시 콤보 카운트 누적
+   - 4. 콤보 시간 적용: 1단계 10초, 2단계 20초, 3단계 30초
    ==================================================== */
 let comboCount = 0;
 let lastValidSetTime = 0;
-const COMBO_WINDOW = 10000; // 10초
 
-/**
- * 큐브를 배치한 직후 호출: 유효한 세트 수가 늘었으면 콤보 카운트
- * @param {number} x - 드롭 위치 x (파티클용)
- * @param {number} y - 드롭 위치 y (파티클용)
- * @param {number} prevValidCount - 배치 전 유효 세트 수 (스냅샷 기준)
- */
 function checkValidSetCombo(x, y, prevValidCount) {
-  // 현재 보드의 유효 세트 수 계산
   const currentValidCount = Game.state.board.filter(
     g => g.tiles.length >= 3 && isValidSet(g.tiles)
   ).length;
 
-  // 유효 세트 수가 늘지 않으면 콤보 없음
   if (currentValidCount <= prevValidCount) return;
 
   const now = Date.now();
-  if (now - lastValidSetTime <= COMBO_WINDOW) {
+  const elapsed = now - lastValidSetTime;
+  
+  let allowedWindow = 10000; // 1단계 10초 이내
+  if (comboCount === 1) allowedWindow = 10000;
+  else if (comboCount === 2) allowedWindow = 20000; // 2단계 20초 이내
+  else if (comboCount >= 3) allowedWindow = 30000; // 3단계 30초 이내
+
+  if (elapsed <= allowedWindow) {
     comboCount++;
   } else {
     comboCount = 1;
   }
   lastValidSetTime = now;
 
-  // 사운드 (피치 체인)
   playSound('place', comboCount);
 
-  // 콤보별 이펙트
   if (comboCount >= 5) {
     triggerAmazing();
   } else if (comboCount >= 3) {
@@ -914,7 +893,6 @@ function checkValidSetCombo(x, y, prevValidCount) {
     triggerNice(x, y);
   }
 
-  // 파티클 (유효 세트 완성 위치에서 폭발)
   spawnBurstParticles(x, y, comboCount);
 }
 
@@ -933,7 +911,6 @@ function triggerOnFire() {
   const ct = document.getElementById('combo-text');
   ct.textContent = '🔥 ON FIRE!';
   ct.className = 'combo-text fire show';
-  // 테두리 효과
   const fb = document.getElementById('fire-border');
   fb.className = 'show';
   setTimeout(() => { ct.className = 'combo-text fire'; fb.className = ''; }, 1700);
@@ -944,13 +921,11 @@ function triggerAmazing() {
   const ct = document.getElementById('combo-text');
   ct.textContent = '✨ AMAZING!! ✨';
   ct.className = 'combo-text amazing show';
-  // 화면 플래시
   const fl = document.getElementById('flash-overlay');
   fl.className = 'show';
   const fb = document.getElementById('fire-border');
   fb.className = 'show';
   setTimeout(() => { ct.className = 'combo-text amazing'; fl.className = ''; fb.className = ''; }, 1900);
-  // 추가 파티클
   for (let i = 0; i < 30; i++) {
     setTimeout(() => {
       spawnBurstParticles(
@@ -981,7 +956,6 @@ function spawnBurstParticles(cx, cy, count) {
       animation-duration:${dur}s;
       filter:blur(${Math.random() > 0.5 ? 1 : 0}px);
     `;
-    // 키프레임을 inline style로 구현
     p.animate([
       { transform: 'translate(0,0) scale(1)', opacity: 1 },
       { transform: `translate(${dx}px, ${dy}px) scale(0.2)`, opacity: 0 }
@@ -1016,7 +990,6 @@ function addRecord(avatarId, type){
   localStorage.setItem(RECORD_KEY, JSON.stringify(r));
 }
 
-/* 파티클 배경 엔진 */
 (function initParticles(){
   const wrap = document.getElementById('particles');
   for(let i=0;i<28;i++){
@@ -1115,7 +1088,6 @@ document.getElementById('btn-connect').onclick = ()=>{
     const listEl = document.getElementById('online-list');
     listEl.innerHTML = '';
 
-    // 자기 자신 먼저
     const me = users.find(u => u.id === socket.id);
     if (me) {
       const selfItem = document.createElement('div');
@@ -1174,7 +1146,6 @@ document.getElementById('btn-connect').onclick = ()=>{
     initOnlineGame(data.roomPlayers, data.options, data.deck);
   });
 
-  // 서버 권위: 상대가 움직일 때 보드/패 동기화 (턴 종료 전 실시간)
   socket.on('syncMove', (state)=>{
     if (!Game.state) return;
     Game.state.board = state.board;
@@ -1183,7 +1154,6 @@ document.getElementById('btn-connect').onclick = ()=>{
     renderAll();
   });
 
-  // 서버 권위: 턴이 바뀔 때 서버가 emit
   socket.on('turnChanged', (data)=>{
     if (!Game.state) return;
     Game.state.turnIndex = data.turnIndex;
@@ -1192,17 +1162,14 @@ document.getElementById('btn-connect').onclick = ()=>{
     if (data.deck) Game.state.deck = data.deck;
     Game.state.turnSnapshot = snapshotTurnState();
     renderAll();
-    // AI 차례면 로컬 AI 실행
     if (!Game.state.gameOver && currentPlayer().type === 'ai') {
       setTimeout(runAITurn, 900);
     }
   });
 
-  // 서버 권위: 타이머 틱 (서버가 1초마다 emit)
   socket.on('timerTick', (data)=>{
     if (!Game.state) return;
     Game.state.timeLeft = data.timeLeft;
-    // 타이머 사운드
     if (isHumanTurn()) {
       if (data.timeLeft === 10) playSound('timer_warn');
       if (data.timeLeft <= 3 && data.timeLeft > 0) playSound('timer_danger');
@@ -1210,7 +1177,6 @@ document.getElementById('btn-connect').onclick = ()=>{
     updateTimerDisplay();
   });
 
-  // 서버 권위: 타이머 0 → 강제 턴 넘김
   socket.on('forceAdvance', (data)=>{
     if (!Game.state || Game.state.gameOver) return;
     if (isHumanTurn()) {
@@ -1308,7 +1274,6 @@ function initOnlineGame(roomPlayers, options, synchronizedDeck) {
   });
   Game.state.turnSnapshot = snapshotTurnState();
   showScreen('game-screen'); renderAll();
-  // 온라인 게임: 타이머는 서버 timerTick으로 처리 (로컬 타이머 시작 안 함)
 }
 
 function startNewGame(){
@@ -1517,7 +1482,6 @@ boardArea.addEventListener('drop', e => {
   if(!loc) return;
 
   const fromRack = loc.from === 'rack';
-  // ✅ 배치 전 유효 세트 수 캡처 (콤보 판정 기준)
   const prevValidCount = fromRack
     ? Game.state.board.filter(g => g.tiles.length >= 3 && isValidSet(g.tiles)).length
     : -1;
@@ -1532,7 +1496,6 @@ boardArea.addEventListener('drop', e => {
   Game.state.board.push({ x: pos.x, y: pos.y, tiles: [loc.tile] });
   cleanupEmptyGroups();
 
-  // 🔥 콤보 이펙트: rack에서 board로 옮겼고, 유효 세트 수가 늘었을 때만 발동
   if (fromRack) {
     checkValidSetCombo(e.clientX, e.clientY, prevValidCount);
   }
@@ -1551,7 +1514,6 @@ function attachGroupDropHandlers(el, gi){
     const loc = findTileAnywhere(tileId);
     if(!loc || (loc.from==='board' && loc.gi===gi)) return;
     const fromRack = loc.from === 'rack';
-    // ✅ 배치 전 유효 세트 수 캡처
     const prevValidCount = fromRack
       ? Game.state.board.filter(g => g.tiles.length >= 3 && isValidSet(g.tiles)).length
       : -1;
@@ -1561,7 +1523,6 @@ function attachGroupDropHandlers(el, gi){
     sortBoardGroup(Game.state.board[gi].tiles);
     cleanupEmptyGroups();
 
-    // 🔥 콤보 이펙트: 유효 세트 수 증가 시에만
     if (fromRack) {
       checkValidSetCombo(e.clientX, e.clientY, prevValidCount);
     }
@@ -1596,14 +1557,13 @@ function networkSync(){
 function effectiveTimeLimit(){ const p = currentPlayer(); let t = Game.state.timeLimit; if(avAbility(p.avatar)==='time_bonus') t += 5; return t; }
 let lastTimerWarnPlayed = -1;
 function startTurnTimer(){
-  if (isOnlineGame) return; // 온라인은 서버가 관리
+  if (isOnlineGame) return; 
   clearInterval(Game.timerId);
   Game.state.timeLeft = effectiveTimeLimit();
   lastTimerWarnPlayed = -1;
   updateTimerDisplay();
   Game.timerId = setInterval(()=>{
     Game.state.timeLeft -= 1;
-    // 효과음
     if (isHumanTurn()) {
       if (Game.state.timeLeft === 10) playSound('timer_warn');
       if (Game.state.timeLeft <= 3 && Game.state.timeLeft > 0) playSound('timer_danger');
@@ -1663,7 +1623,6 @@ function attemptEndTurn(isAI=false){
 
   if(p.rack.length===0){ endGame(p); return true; }
 
-  // 턴 종료 성공 사운드
   if (!isAI) playSound('turn_end');
 
   advanceTurn(); return true;
@@ -1673,10 +1632,8 @@ function advanceTurn(){
   cleanupEmptyGroups();
 
   if (isOnlineGame && socket) {
-    // 온라인: 서버에 턴 종료 알림 → 서버가 양쪽에 turnChanged emit
     Game.state.turnIndex = (Game.state.turnIndex + 1) % Game.state.players.length;
     socket.emit('advanceTurn', Game.state);
-    // 다음 턴 스냅샷은 서버의 turnChanged 응답 후 설정
     return;
   }
 
@@ -1957,7 +1914,6 @@ function backToLobby(){
   document.getElementById('btn-surrender').style.display = 'none';
   document.getElementById('chat-container').classList.remove('show');
   document.getElementById('chat-input-wrapper').classList.remove('show');
-  // 콤보 리셋
   comboCount = 0; lastValidSetTime = 0;
   showScreen('lobby-screen');
   document.getElementById('btn-continue').disabled = !localStorage.getItem(SAVE_KEY);
