@@ -43,8 +43,8 @@ function generateServerDeck() {
   return deck;
 }
 
-// 서버 타이머 시작: 방 단위로 타이머를 관리
-function startRoomTimer(roomId, timeLimit) {
+// 서버 타이머 시작: 방 단위로 타이머를 관리 (플레이어별 개별 시간 적용)
+function startRoomTimer(roomId, defaultTimeLimit) {
   const state = roomStates[roomId];
   if (!state) return;
 
@@ -54,7 +54,19 @@ function startRoomTimer(roomId, timeLimit) {
     state.timerInterval = null;
   }
 
-  state.timeLeft = timeLimit;
+  // 플레이어 개별 아바타 능력치 판단
+  const activePlayer = state.players[state.turnIndex];
+  let customLimit = defaultTimeLimit;
+  
+  if (activePlayer) {
+    if (activePlayer.avatar === 'boy') {
+      customLimit = 30; // 모범생은 30초 고정
+    } else if (activePlayer.avatar === 'grand_father') {
+      customLimit = defaultTimeLimit + 5; // 노인네는 제한시간 +5초 보너스
+    }
+  }
+
+  state.timeLeft = customLimit;
 
   // 즉시 현재 상태 브로드캐스트
   io.to(roomId).emit('timerTick', {
@@ -104,9 +116,15 @@ io.on('connection', (socket) => {
     if (challenger) {
       io.to(data.targetId).emit('matchRequested', {
         fromId: socket.id,
-        fromNickname: challenger.nickname
+        fromNickname: challenger.nickname,
+        roomOptions: data.roomOptions // 신청자가 지정한 게임 설정
       });
     }
+  });
+
+  socket.on('cancelMatch', (data) => {
+    // 상대방에게 신청 취소를 전달하여 수락 창을 강제 닫음
+    io.to(data.targetId).emit('matchCanceled', { fromId: socket.id });
   });
 
   socket.on('matchResponse', (data) => {

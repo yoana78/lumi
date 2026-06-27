@@ -659,6 +659,9 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 <div id="flash-overlay"></div>
 
 <div class="screen active" id="lobby-screen">
+  <!-- 버전 표시 라벨 (v2.1) -->
+  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.1</div>
+
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
     <div class="logo-sub">Y<span class="heart">♥</span>ANA · PREMIUM EDITION</div>
@@ -1173,9 +1176,19 @@ document.getElementById('btn-connect').onclick = ()=>{
     document.getElementById('btn-refuse-match').onclick = () => { socket.emit('matchResponse', { targetId: data.fromId, accepted: false }); hideModal(); };
   });
 
-  socket.on('matchRejected', (data)=>{ showModal(`<h2>❌ 신청 거절</h2><p>${data.nickname}님이 대결을 거절했습니다.</p><button class="jelly-btn ghost" onclick="hideModal()">확인</button>`); });
+  socket.on('matchCanceled', (data)=>{
+    hideModal();
+    toast('상대방이 대결 신청을 취소했습니다.');
+  });
+
+  socket.on('matchRejected', (data)=>{ 
+    // 신청 취소 시 대기중인 타이머가 있다면 해제
+    if(window.matchTimeoutId) { clearTimeout(window.matchTimeoutId); window.matchTimeoutId = null; }
+    showModal(`<h2>❌ 신청 거절</h2><p>${data.nickname}님이 대결을 거절했습니다.</p><button class="jelly-btn ghost" onclick="hideModal()">확인</button>`); 
+  });
 
   socket.on('gameStartSync', (data)=>{
+    if(window.matchTimeoutId) { clearTimeout(window.matchTimeoutId); window.matchTimeoutId = null; }
     hideModal(); toast('🎮 대결이 매칭되어 게임을 시작합니다!');
     isOnlineGame = true;
     document.getElementById('btn-surrender').style.display = 'flex';
@@ -1266,9 +1279,18 @@ function askMatchRequest(targetId, nickname) {
   showModal(`<h2>⚔️ 대결 신청</h2><p>${nickname}님께 대결을 신청하시겠습니까?</p>
     <div class="modal-actions"><button class="jelly-btn green-btn" id="btn-match-yes">네</button><button class="jelly-btn ghost" onclick="hideModal()">아니오</button></div>`);
   document.getElementById('btn-match-yes').onclick = () => { 
+    if(window.matchTimeoutId) { clearTimeout(window.matchTimeoutId); }
     // 신청을 보낼 때 자신의 로비 설정(Lobby)을 탑재해서 전송
     socket.emit('requestMatch', { targetId: targetId, roomOptions: Lobby }); 
     showModal(`<h2>⏳ 응답 대기중</h2><p>${nickname}님의 수락을 기다리는 중입니다...</p>`); 
+
+    // 5초 자동 취소 타이머 시동
+    window.matchTimeoutId = setTimeout(() => {
+      socket.emit('cancelMatch', { targetId: targetId });
+      hideModal();
+      toast('상대방이 응답하지 않아 신청이 취소되었습니다.');
+      window.matchTimeoutId = null;
+    }, 5000);
   };
 }
 
