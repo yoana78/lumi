@@ -897,21 +897,18 @@ let comboCount = 0;
 let lastValidSetTime = 0;
 
 function checkValidSetCombo(x, y, prevValidCount) {
-  const currentValidCount = Game.state.board.filter(
-    g => g.tiles.length >= 3 && isValidSet(g.tiles)
-  ).length;
-
-  if (currentValidCount <= prevValidCount) return;
+  const hasValidOnBoard = Game.state.board.some(g => g.tiles.length >= 3 && isValidSet(g.tiles));
+  if (!hasValidOnBoard) return;
 
   const now = Date.now();
   const elapsed = now - lastValidSetTime;
-  
-  let allowedWindow = 10000; // 1단계 10초 이내
-  if (comboCount === 1) allowedWindow = 10000;
-  else if (comboCount === 2) allowedWindow = 20000; // 2단계 20초 이내
-  else if (comboCount >= 3) allowedWindow = 30000; // 3단계 30초 이내
 
-  if (elapsed <= allowedWindow) {
+  let allowedWindow = 10000;
+  if (comboCount === 1) allowedWindow = 10000;
+  else if (comboCount === 2) allowedWindow = 20000;
+  else if (comboCount >= 3) allowedWindow = 30000;
+
+  if (lastValidSetTime > 0 && elapsed <= allowedWindow) {
     comboCount++;
   } else {
     comboCount = 1;
@@ -1461,7 +1458,7 @@ function getSafePosition(startX, startY, width, height, ignoreGi = -1) {
                 x += 16; // 52px씩 튀는 것을 막고 16px씩 정교하게 미끄러짐
                 if(x > maxW - width - 15) {
                     x = 15;
-                    y += 35;
+                    y += 72; // 세로 높이(68px) 및 안전 여백을 확보하여 세로 겹침 현상 원천 차단
                 }
                 break;
             }
@@ -1483,8 +1480,15 @@ function renderTileEl(t, draggable=true){
   el.dataset.tileId = t.id;
   el.draggable = draggable;
   if(draggable){
-    el.addEventListener('dragstart', e=>{ e.dataTransfer.setData('text/plain', t.id); el.classList.add('dragging'); });
-    el.addEventListener('dragend', ()=> el.classList.remove('dragging'));
+    el.addEventListener('dragstart', e=>{ 
+      e.dataTransfer.setData('text/plain', t.id); 
+      window.draggedTileId = t.id; // 모바일 터치 드롭 백업 전역 바인딩
+      el.classList.add('dragging'); 
+    });
+    el.addEventListener('dragend', ()=>{ 
+      el.classList.remove('dragging');
+      window.draggedTileId = null;
+    });
   }
   return el;
 }
@@ -1519,9 +1523,19 @@ function renderBoard(){
     handle.className = 'group-handle'; handle.innerHTML = '⠿'; handle.draggable = true;
     handle.addEventListener('dragstart', e=>{
       e.dataTransfer.setData('group-move', gi);
+      window.draggedGroupIndex = gi; // 모바일 백업
       const rect = gEl.getBoundingClientRect();
-      e.dataTransfer.setData('offsetX', e.clientX - rect.left);
-      e.dataTransfer.setData('offsetY', e.clientY - rect.top);
+      const ox = e.clientX - rect.left;
+      const oy = e.clientY - rect.top;
+      e.dataTransfer.setData('offsetX', ox);
+      e.dataTransfer.setData('offsetY', oy);
+      window.dragOffsetX = ox;
+      window.dragOffsetY = oy;
+    });
+    handle.addEventListener('dragend', () => {
+      window.draggedGroupIndex = null;
+      window.dragOffsetX = 0;
+      window.dragOffsetY = 0;
     });
     gEl.appendChild(handle);
 
@@ -1594,23 +1608,27 @@ boardArea.addEventListener('drop', e => {
 
   const coords = getEventCoordinates(e);
 
-  const moveGi = e.dataTransfer.getData('group-move');
-  if(moveGi !== "") {
-    const gi = parseInt(moveGi);
-    const ox = parseFloat(e.dataTransfer.getData('offsetX')) || 0;
-    const oy = parseFloat(e.dataTransfer.getData('offsetY')) || 0;
-    const rect = boardArea.getBoundingClientRect();
-    let proposedX = Math.max(0, coords.x - rect.left - ox);
-    let proposedY = Math.max(0, coords.y - rect.top - oy);
-    let gw = Game.state.board[gi].tiles.length * 50 + 40;
-    let pos = getSafePosition(proposedX, proposedY, gw, 78, gi);
-    Game.state.board[gi].x = pos.x;
-    Game.state.board[gi].y = pos.y;
-    networkSync();
+  const moveGiData = e.dataTransfer.getData('group-move');
+  const hasGroupMove = (moveGiData !== "") || (window.draggedGroupIndex !== undefined && window.draggedGroupIndex !== null);
+  
+  if(hasGroupMove) {
+    const gi = (moveGiData !== "") ? parseInt(moveGiData) : window.draggedGroupIndex;
+    if (Game.state.board[gi]) {
+      const ox = parseFloat(e.dataTransfer.getData('offsetX')) || window.dragOffsetX || 0;
+      const oy = parseFloat(e.dataTransfer.getData('offsetY')) || window.dragOffsetY || 0;
+      const rect = boardArea.getBoundingClientRect();
+      let proposedX = Math.max(0, coords.x - rect.left - ox);
+      let proposedY = Math.max(0, coords.y - rect.top - oy);
+      let gw = Game.state.board[gi].tiles.length * 50 + 20;
+      let pos = getSafePosition(proposedX, proposedY, gw, 68, gi);
+      Game.state.board[gi].x = pos.x;
+      Game.state.board[gi].y = pos.y;
+      networkSync();
+    }
     return;
   }
 
-  const tileId = e.dataTransfer.getData('text/plain');
+  const tileId = e.dataTransfer.getData('text/plain') || window.draggedTileId;
   if(!tileId || !isHumanTurn()) return;
   const loc = findTileAnywhere(tileId);
   if(!loc) return;
@@ -1643,7 +1661,7 @@ function attachGroupDropHandlers(el, gi){
   el.addEventListener('drop', e=>{
     e.preventDefault(); e.stopPropagation(); el.classList.remove('draghover');
     if(!isHumanTurn()) return;
-    const tileId = e.dataTransfer.getData('text/plain');
+    const tileId = e.dataTransfer.getData('text/plain') || window.draggedTileId;
     if(!tileId) return;
     const loc = findTileAnywhere(tileId);
     if(!loc || (loc.from==='board' && loc.gi===gi)) return;
@@ -1671,7 +1689,8 @@ function attachRackDropHandlers(el){
   el.addEventListener('dragover', e=>{ if(isHumanTurn()) e.preventDefault(); });
   el.addEventListener('drop', e=>{
     e.preventDefault(); if(!isHumanTurn()) return;
-    const tileId = e.dataTransfer.getData('text/plain');
+    const tileId = e.dataTransfer.getData('text/plain') || window.draggedTileId;
+    if(!tileId) return;
     const loc = findTileAnywhere(tileId);
     if(!loc || loc.from==='rack') return;
     removeTileFromSource(loc);
