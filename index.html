@@ -276,6 +276,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
   border-radius:26px; border:1px solid rgba(255,255,255,.16); border-top:1px solid rgba(255,255,255,.32); border-left:1px solid rgba(255,255,255,.32);
   position:relative; overflow:auto;
   box-shadow: inset 0 10px 32px rgba(0,0,0,.52);
+  touch-action: none; /* 모바일 드래그 중 스크롤 캔슬 전면 차단 */
 }
 .board-countdown{
   position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
@@ -490,7 +491,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 
 /* ===== 콤보 이펙트 오버레이 ===== */
 #combo-overlay {
-  position: fixed; inset: 0; pointer-events: none; z-index: 200; display: flex; align-items: center; justify-content: center;
+  position: fixed; inset: 0; pointer-events: none; z-index: 10000; display: flex; align-items: center; justify-content: center;
 }
 .combo-text {
   position: absolute; top: 35%; left: 50%; transform: translate(-50%, -50%);
@@ -563,7 +564,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 
 /* nice 팝업 */
 .nice-popup {
-  position: fixed; pointer-events: none; z-index: 199;
+  position: fixed; pointer-events: none; z-index: 9999;
   font-family: 'Fredoka One', cursive;
   font-size: 28px; font-weight: 400; color: #fff;
   text-shadow: 0 2px 8px rgba(0,0,0,.8), 0 0 20px rgba(255,210,76,.9);
@@ -659,8 +660,8 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 <div id="flash-overlay"></div>
 
 <div class="screen active" id="lobby-screen">
-  <!-- 버전 표시 라벨 (v2.3) -->
-  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.3</div>
+  <!-- 버전 표시 라벨 (v2.4) -->
+  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.4</div>
 
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
@@ -1437,35 +1438,46 @@ function saveGame(){ if(!isOnlineGame && Game.state) { try{ localStorage.setItem
    겹침 방지
    ==================================================== */
 function getSafePosition(startX, startY, width, height, ignoreGi = -1) {
-    let x = startX, y = startY;
+    let x = (typeof startX === 'number' && !isNaN(startX)) ? startX : 50;
+    let y = (typeof startY === 'number' && !isNaN(startY)) ? startY : 50;
     let collision = true;
     let attempts = 0;
     const boardAreaEl = document.getElementById('board-area');
     const maxW = boardAreaEl ? boardAreaEl.clientWidth : 800;
     
-    while(collision && attempts < 120) {
+    while(collision && attempts < 150) {
         collision = false;
         for(let gi=0; gi<Game.state.board.length; gi++) {
             if(gi === ignoreGi) continue;
             let g = Game.state.board[gi];
-            let gw = g.tiles.length * 50 + 20;
+            if (!g) continue;
+            
+            // 좌표 값이 안전한지 검사하고 없으면 기본값 보정
+            let gx = (typeof g.x === 'number' && !isNaN(g.x)) ? g.x : 20;
+            let gy = (typeof g.y === 'number' && !isNaN(g.y)) ? g.y : 20;
+            
+            let gw = (g.tiles && g.tiles.length) ? (g.tiles.length * 50 + 20) : 50;
             let gh = 68;
             
-            // 겹침 범위를 기존 10px에서 2px로 밀착시켜 부드러운 유착 배치 유도
-            if (x < g.x + gw + 2 && x + width + 2 > g.x &&
-                y < g.y + gh + 2 && y + height + 2 > g.y) {
+            // 충돌 감지
+            if (x < gx + gw + 2 && x + width + 2 > gx &&
+                y < gy + gh + 2 && y + height + 2 > gy) {
                 collision = true;
-                x += 16; // 52px씩 튀는 것을 막고 16px씩 정교하게 미끄러짐
+                x += 16;
                 if(x > maxW - width - 15) {
                     x = 15;
-                    y += 72; // 세로 높이(68px) 및 안전 여백을 확보하여 세로 겹침 현상 원천 차단
+                    y += 72; // 한 줄 아래로 안전하게 밀어내기
                 }
                 break;
             }
         }
         attempts++;
     }
-    return {x, y};
+    
+    return {
+      x: (typeof x === 'number' && !isNaN(x)) ? x : 50,
+      y: (typeof y === 'number' && !isNaN(y)) ? y : 50
+    };
 }
 
 /* ====================================================
