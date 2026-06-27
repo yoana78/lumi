@@ -11,16 +11,7 @@
 <link rel="stylesheet" href="https://webfontworld.github.io/gmarket/GmarketSans.css">
 <script src="https://cdn.tailwindcss.com"></script>
 
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
-<script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
-<script>
-  window.addEventListener('DOMContentLoaded', function() {
-      MobileDragDrop.polyfill({
-          dragImageTranslateOverride: MobileDragDrop.scrollBehaviourDragImageTranslateOverride
-      });
-      window.addEventListener('touchmove', function() {}, {passive: false});
-  });
-</script>
+<!-- mobile-drag-drop 폴리필 제거됨 - 네이티브 터치 이벤트로 대체 -->
 
 <script>
   tailwind.config = {
@@ -660,8 +651,8 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 <div id="flash-overlay"></div>
 
 <div class="screen active" id="lobby-screen">
-  <!-- 버전 표시 라벨 (v2.5) -->
-  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.5</div>
+  <!-- 버전 표시 라벨 (v2.6) -->
+  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.6</div>
 
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
@@ -897,33 +888,35 @@ function playOscillator(ctx, type, freq, gain, duration, startTime) {
 let comboCount = 0;
 let lastValidSetTime = 0;
 
-function checkValidSetCombo(x, y, prevValidCount) {
-  const hasValidOnBoard = Game.state.board.some(g => g.tiles.length >= 3 && isValidSet(g.tiles));
-  if (!hasValidOnBoard) return;
+function checkValidSetCombo(x, y) {
+  // 현재 보드에서 완성된 유효 세트(3장 이상) 개수
+  const currentValidCount = Game.state.board.filter(g => g.tiles.length >= 3 && isValidSet(g.tiles)).length;
+  if (currentValidCount === 0) return; // 유효 세트 없으면 리턴
 
   const now = Date.now();
   const elapsed = now - lastValidSetTime;
 
-  let allowedWindow = 10000;
-  if (comboCount === 1) allowedWindow = 10000;
-  else if (comboCount === 2) allowedWindow = 20000;
-  else if (comboCount >= 3) allowedWindow = 30000;
+  // 시간 윈도우 결정
+  let allowedWindow = 10000; // 1단계: 10초
+  if (comboCount >= 2) allowedWindow = 20000; // 2단계: 20초
+  if (comboCount >= 3) allowedWindow = 30000; // 3단계: 30초
 
   if (lastValidSetTime > 0 && elapsed <= allowedWindow) {
     comboCount++;
   } else {
-    comboCount = 1;
+    comboCount = 1; // 시간 초과 또는 첫 배치
   }
   lastValidSetTime = now;
 
   playSound('place', comboCount);
 
+  // 1단계부터 이펙트 발동 (첫 유효 세트 완성시)
   if (comboCount >= 5) {
     triggerAmazing();
   } else if (comboCount >= 3) {
     triggerOnFire();
-  } else if (comboCount >= 2) {
-    triggerNice(x, y);
+  } else if (comboCount >= 1) {
+    triggerNice(x, y); // 1단계도 Nice! 이펙트
   }
 
   spawnBurstParticles(x, y, comboCount);
@@ -1441,49 +1434,53 @@ function showScreen(id){
 function saveGame(){ if(!isOnlineGame && Game.state) { try{ localStorage.setItem(SAVE_KEY, JSON.stringify(Game.state)); }catch(e){} } }
 
 /* ====================================================
-   겹침 방지
+   겹침 방지 - 그리드 기반 안전 배치
    ==================================================== */
 function getSafePosition(startX, startY, width, height, ignoreGi = -1) {
-    let x = (typeof startX === 'number' && !isNaN(startX)) ? startX : 50;
-    let y = (typeof startY === 'number' && !isNaN(startY)) ? startY : 50;
-    let collision = true;
-    let attempts = 0;
     const boardAreaEl = document.getElementById('board-area');
     const maxW = boardAreaEl ? boardAreaEl.clientWidth : 800;
-    
-    while(collision && attempts < 150) {
-        collision = false;
-        for(let gi=0; gi<Game.state.board.length; gi++) {
-            if(gi === ignoreGi) continue;
-            let g = Game.state.board[gi];
-            if (!g) continue;
-            
-            // 좌표 값이 안전한지 검사하고 없으면 기본값 보정
-            let gx = (typeof g.x === 'number' && !isNaN(g.x)) ? g.x : 20;
-            let gy = (typeof g.y === 'number' && !isNaN(g.y)) ? g.y : 20;
-            
-            let gw = (g.tiles && g.tiles.length) ? (g.tiles.length * 50 + 20) : 50;
-            let gh = 68;
-            
-            // 충돌 감지
-            if (x < gx + gw + 2 && x + width + 2 > gx &&
-                y < gy + gh + 2 && y + height + 2 > gy) {
-                collision = true;
-                x += 16;
-                if(x > maxW - width - 15) {
-                    x = 15;
-                    y += 72; // 한 줄 아래로 안전하게 밀어내기
-                }
-                break;
+    const ROW_H = 80; // 행 높이 (타일 68px + 여백)
+    const COL_STEP = 16; // 열 이동 단위
+    const MARGIN = 8; // 충돌 감지 여백
+
+    // 점유된 영역을 수집
+    const occupied = [];
+    for (let gi = 0; gi < Game.state.board.length; gi++) {
+        if (gi === ignoreGi) continue;
+        const g = Game.state.board[gi];
+        if (!g || !g.tiles) continue;
+        const gx = (typeof g.x === 'number' && !isNaN(g.x)) ? g.x : 0;
+        const gy = (typeof g.y === 'number' && !isNaN(g.y)) ? g.y : 0;
+        const gw = g.tiles.length * 50 + 20;
+        occupied.push({ x: gx, y: gy, w: gw, h: 68 });
+    }
+
+    function overlaps(cx, cy) {
+        return occupied.some(o =>
+            cx < o.x + o.w + MARGIN && cx + width + MARGIN > o.x &&
+            cy < o.y + o.h + MARGIN && cy + height + MARGIN > o.y
+        );
+    }
+
+    // 요청 위치 먼저 시도
+    let sx = (typeof startX === 'number' && !isNaN(startX) && startX >= 0) ? startX : 10;
+    let sy = (typeof startY === 'number' && !isNaN(startY) && startY >= 0) ? startY : 10;
+    if (!overlaps(sx, sy)) return { x: sx, y: sy };
+
+    // 그리드 스캔: 행별로 열을 스캔하며 빈 자리 탐색
+    for (let row = 0; row < 20; row++) {
+        const cy = 10 + row * ROW_H;
+        for (let col = 0; col * COL_STEP + 10 < maxW - width; col++) {
+            const cx = 10 + col * COL_STEP;
+            if (!overlaps(cx, cy)) {
+                return { x: cx, y: cy };
             }
         }
-        attempts++;
     }
-    
-    return {
-      x: (typeof x === 'number' && !isNaN(x)) ? x : 50,
-      y: (typeof y === 'number' && !isNaN(y)) ? y : 50
-    };
+
+    // 최후 수단: 보드 아래 새 행
+    const maxY = occupied.reduce((m, o) => Math.max(m, o.y + o.h), 0);
+    return { x: 10, y: maxY + 10 };
 }
 
 /* ====================================================
@@ -1668,22 +1665,19 @@ boardArea.addEventListener('drop', e => {
   if(!loc) return;
 
   const fromRack = loc.from === 'rack';
-  const prevValidCount = fromRack
-    ? Game.state.board.filter(g => g.tiles.length >= 3 && isValidSet(g.tiles)).length
-    : -1;
 
   removeTileFromSource(loc);
   const rect = boardArea.getBoundingClientRect();
 
   let proposedX = Math.max(0, coords.x - rect.left - 25);
   let proposedY = Math.max(0, coords.y - rect.top - 35);
-  let pos = getSafePosition(proposedX, proposedY, 50 + 20, 68);
+  let pos = getSafePosition(proposedX, proposedY, 70, 68);
 
   Game.state.board.push({ x: pos.x, y: pos.y, tiles: [loc.tile] });
   cleanupEmptyGroups();
 
   if (fromRack) {
-    checkValidSetCombo(coords.x, coords.y, prevValidCount);
+    checkValidSetCombo(coords.x, coords.y);
   }
 
   networkSync();
@@ -1700,9 +1694,6 @@ function attachGroupDropHandlers(el, gi){
     const loc = findTileAnywhere(tileId);
     if(!loc || (loc.from==='board' && loc.gi===gi)) return;
     const fromRack = loc.from === 'rack';
-    const prevValidCount = fromRack
-      ? Game.state.board.filter(g => g.tiles.length >= 3 && isValidSet(g.tiles)).length
-      : -1;
 
     const coords = getEventCoordinates(e);
 
@@ -1712,7 +1703,7 @@ function attachGroupDropHandlers(el, gi){
     cleanupEmptyGroups();
 
     if (fromRack) {
-      checkValidSetCombo(coords.x, coords.y, prevValidCount);
+      checkValidSetCombo(coords.x, coords.y);
     }
 
     networkSync();
@@ -2300,6 +2291,146 @@ document.getElementById('btn-continue').onclick = ()=>{
     showScreen('game-screen'); renderAll(); startTurnTimer();
   } catch(e) { toast('저장 데이터를 불러올 수 없습니다.'); }
 };
+/* ====================================================
+   📱 네이티브 터치 드래그앤드롭 시스템
+   mobile-drag-drop 폴리필 완전 대체
+   ==================================================== */
+(function setupTouchDrag() {
+  let touchDragTileId = null;
+  let touchDragClone = null;
+  let touchOffsetX = 0;
+  let touchOffsetY = 0;
+
+  function createClone(el, touch) {
+    const clone = el.cloneNode(true);
+    const rect = el.getBoundingClientRect();
+    clone.style.position = 'fixed';
+    clone.style.left = rect.left + 'px';
+    clone.style.top = rect.top + 'px';
+    clone.style.width = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    clone.style.opacity = '0.7';
+    clone.style.pointerEvents = 'none';
+    clone.style.zIndex = '99999';
+    clone.style.borderRadius = '11px';
+    clone.style.transition = 'none';
+    clone.style.transform = 'scale(1.1)';
+    document.body.appendChild(clone);
+    touchOffsetX = touch.clientX - rect.left;
+    touchOffsetY = touch.clientY - rect.top;
+    return clone;
+  }
+
+  function moveClone(touch) {
+    if (!touchDragClone) return;
+    touchDragClone.style.left = (touch.clientX - touchOffsetX) + 'px';
+    touchDragClone.style.top = (touch.clientY - touchOffsetY) + 'px';
+  }
+
+  function removeClone() {
+    if (touchDragClone) {
+      touchDragClone.remove();
+      touchDragClone = null;
+    }
+  }
+
+  // 터치 드롭 처리: 손가락 아래의 실제 요소를 찾아서 드롭 처리
+  function handleTouchDrop(touch) {
+    if (!touchDragTileId || !isHumanTurn()) return;
+
+    // 클론 임시 숨김 → elementFromPoint가 클론 대신 아래 요소를 감지하도록
+    if (touchDragClone) touchDragClone.style.display = 'none';
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    if (touchDragClone) touchDragClone.style.display = '';
+
+    const loc = findTileAnywhere(touchDragTileId);
+    if (!loc) return;
+
+    const fromRack = loc.from === 'rack';
+
+    // 보드판 위에 드롭했는지 확인
+    const boardEl = document.getElementById('board-area');
+    const rackEl = document.getElementById('rack');
+
+    // 타일 그룹 위에 드롭?
+    let targetGroup = el ? el.closest('[data-group-index]') : null;
+    if (targetGroup) {
+      const gi = parseInt(targetGroup.dataset.groupIndex);
+      if (loc.from === 'board' && loc.gi === gi) return; // 같은 그룹이면 무시
+      removeTileFromSource(loc);
+      if (!Game.state.board[gi]) return;
+      Game.state.board[gi].tiles.push(loc.tile);
+      sortBoardGroup(Game.state.board[gi].tiles);
+      cleanupEmptyGroups();
+      if (fromRack) checkValidSetCombo(touch.clientX, touch.clientY);
+      networkSync();
+      return;
+    }
+
+    // 보드판 위에 드롭?
+    if (el && (el === boardEl || boardEl.contains(el))) {
+      const rect = boardEl.getBoundingClientRect();
+      const proposedX = Math.max(0, touch.clientX - rect.left - touchOffsetX);
+      const proposedY = Math.max(0, touch.clientY - rect.top - touchOffsetY);
+      const pos = getSafePosition(proposedX, proposedY, 70, 68);
+      removeTileFromSource(loc);
+      Game.state.board.push({ x: pos.x, y: pos.y, tiles: [loc.tile] });
+      cleanupEmptyGroups();
+      if (fromRack) checkValidSetCombo(touch.clientX, touch.clientY);
+      networkSync();
+      return;
+    }
+
+    // 랙 위에 드롭?
+    if (el && (el === rackEl || rackEl.contains(el))) {
+      if (loc.from === 'rack') return;
+      removeTileFromSource(loc);
+      let targetUser = Game.state.players[0];
+      if (isOnlineGame && socket) targetUser = Game.state.players.find(p => p.networkId === socket.id);
+      targetUser.rack.push(loc.tile);
+      cleanupEmptyGroups();
+      networkSync();
+    }
+  }
+
+  // 이벤트 위임: document 레벨에서 터치 이벤트 처리
+  document.addEventListener('touchstart', function(e) {
+    // 타일 요소인지 확인
+    const tileEl = e.target.closest('[data-tile-id]');
+    if (!tileEl || !isHumanTurn || !Game.state) return;
+    if (typeof isHumanTurn === 'function' && !isHumanTurn()) return;
+
+    touchDragTileId = tileEl.dataset.tileId;
+    window.draggedTileId = touchDragTileId;
+
+    const touch = e.touches[0];
+    touchDragClone = createClone(tileEl, touch);
+    // 스크롤 방지
+    e.preventDefault();
+  }, { passive: false });
+
+  document.addEventListener('touchmove', function(e) {
+    if (!touchDragTileId) return;
+    e.preventDefault();
+    moveClone(e.touches[0]);
+  }, { passive: false });
+
+  document.addEventListener('touchend', function(e) {
+    if (!touchDragTileId) return;
+    const touch = e.changedTouches[0];
+    handleTouchDrop(touch);
+    removeClone();
+    touchDragTileId = null;
+    window.draggedTileId = null;
+  }, { passive: false });
+
+  document.addEventListener('touchcancel', function() {
+    removeClone();
+    touchDragTileId = null;
+    window.draggedTileId = null;
+  }, { passive: false });
+})();
 </script>
+
 </body>
 </html>
