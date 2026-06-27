@@ -1398,20 +1398,25 @@ function getSafePosition(startX, startY, width, height, ignoreGi = -1) {
     let x = startX, y = startY;
     let collision = true;
     let attempts = 0;
-    while(collision && attempts < 150) {
+    const boardAreaEl = document.getElementById('board-area');
+    const maxW = boardAreaEl ? boardAreaEl.clientWidth : 800;
+    
+    while(collision && attempts < 120) {
         collision = false;
         for(let gi=0; gi<Game.state.board.length; gi++) {
             if(gi === ignoreGi) continue;
             let g = Game.state.board[gi];
-            let gw = g.tiles.length * 50 + 40;
-            let gh = 78;
-            if (x < g.x + gw + 10 && x + width + 10 > g.x &&
-                y < g.y + gh + 10 && y + height + 10 > g.y) {
+            let gw = g.tiles.length * 50 + 20;
+            let gh = 68;
+            
+            // 겹침 범위를 기존 10px에서 2px로 밀착시켜 부드러운 유착 배치 유도
+            if (x < g.x + gw + 2 && x + width + 2 > g.x &&
+                y < g.y + gh + 2 && y + height + 2 > g.y) {
                 collision = true;
-                x += 52;
-                if(x > document.getElementById('board-area').clientWidth - width - 20) {
-                    x = 20;
-                    y += 90;
+                x += 16; // 52px씩 튀는 것을 막고 16px씩 정교하게 미끄러짐
+                if(x > maxW - width - 15) {
+                    x = 15;
+                    y += 35;
                 }
                 break;
             }
@@ -1964,81 +1969,170 @@ document.getElementById('btn-undo').onclick = ()=>{ revertToSnapshot(); networkS
 document.getElementById('btn-tip').onclick = ()=>{
   let targetUser = Game.state.players[0]; if(isOnlineGame && socket) targetUser = Game.state.players.find(p=>p.networkId === socket.id);
   if(targetUser.tipUses<=0) return;
-  const found = findHintInRack(targetUser.rack);
-  if(!found){ toast('힌트로 만들 수 있는 조합이 없어요 🥲'); return; }
-  found.forEach(t=>targetUser.rack.splice(targetUser.rack.indexOf(t),1)); sortBoardGroup(found);
-  let gw = found.length * 50 + 40;
-  let pos = getSafePosition(100, 100, gw, 78);
-  Game.state.board.push({ x: pos.x, y: pos.y, tiles: found });
-  targetUser.tipUses -= 1; cleanupEmptyGroups(); networkSync(); toast('💡 자동으로 세트를 배치했어요!');
+  
+  const hint = findHintInRack(targetUser.rack);
+  if(!hint){ toast('힌트로 만들 수 있는 조합이 없어요 🥲'); return; }
+  
+  if (hint.type === 'pure_rack') {
+    // 1) 내 패로만 이뤄진 세트 자동 보드 드롭
+    hint.tiles.forEach(t => targetUser.rack.splice(targetUser.rack.indexOf(t), 1));
+    sortBoardGroup(hint.tiles);
+    let gw = hint.tiles.length * 50 + 20;
+    let pos = getSafePosition(100, 100, gw, 68);
+    Game.state.board.push({ x: pos.x, y: pos.y, tiles: hint.tiles });
+  } 
+  else if (hint.type === 'borrow_board') {
+    // 2) 보드판에서 여유 타일 1장 빌려서 내 패 2장과 조합
+    const boardGroup = Game.state.board[hint.sourceGroupIndex];
+    // 보드에서 타일 제거
+    boardGroup.tiles = boardGroup.tiles.filter(t => t.id !== hint.borrowedTileId);
+    // 내 랙에서 2장 제거
+    const myRackTiles = hint.tiles.filter(t => t.id !== hint.borrowedTileId);
+    myRackTiles.forEach(t => targetUser.rack.splice(targetUser.rack.indexOf(t), 1));
+    
+    sortBoardGroup(hint.tiles);
+    let gw = hint.tiles.length * 50 + 20;
+    let pos = getSafePosition(100, 100, gw, 68);
+    Game.state.board.push({ x: pos.x, y: pos.y, tiles: hint.tiles });
+  }
+  else if (hint.type === 'append_run') {
+    // 3) 내 패 1장을 기존 보드의 런 조합에 연장 배치
+    const boardGroup = Game.state.board[hint.targetGroupIndex];
+    const myTile = hint.tiles[0];
+    // 내 랙에서 제거
+    targetUser.rack.splice(targetUser.rack.indexOf(myTile), 1);
+    
+    if (hint.position === 'start') {
+      boardGroup.tiles.unshift(myTile);
+    } else {
+      boardGroup.tiles.push(myTile);
+    }
+    sortBoardGroup(boardGroup.tiles);
+  }
+  
+  targetUser.tipUses -= 1;
+  cleanupEmptyGroups();
+  networkSync();
+  toast('💡 자동으로 세트를 배치했어요!');
 };
 
 function findHintInRack(rack){
   const jokers = rack.filter(t => t.isJoker);
   const jokerCount = jokers.length;
 
-  // 1. 그룹(Group) 매칭 검사
-  const byNum = {}; 
-  rack.forEach(t=>{ if(!t.isJoker) (byNum[t.number]=byNum[t.number]||[]).push(t); });
-  for(const num in byNum){
-    const seen = new Set(); const uniq=[]; 
-    byNum[num].forEach(t=>{ if(!seen.has(t.color)){ seen.add(t.color); uniq.push(t); } });
-    
-    // 순수 그룹 3장 이상
-    if(uniq.length>=3) return uniq.slice(0,4);
-    
-    // 일반 2장 + 조커 1장 이상이 있어 3장을 만들 수 있는 경우
-    if(uniq.length === 2 && jokerCount >= 1) {
-      return [...uniq, jokers[0]];
+  // --- [1단계] 내 패(Rack)만 가지고 3장 그룹 완성 검사 ---
+  const byNum = {};
+  rack.forEach(t => { if(!t.isJoker) (byNum[t.number] = byNum[t.number] || []).push(t); });
+  for (const num in byNum) {
+    const seen = new Set(); const uniq = [];
+    byNum[num].forEach(t => { if(!seen.has(t.color)) { seen.add(t.color); uniq.push(t); } });
+    if (uniq.length >= 3) {
+      return { type: 'pure_rack', tiles: uniq.slice(0, 4) };
+    }
+    if (uniq.length === 2 && jokerCount >= 1) {
+      return { type: 'pure_rack', tiles: [...uniq, jokers[0]] };
     }
   }
 
-  // 2. 런(Run) 매칭 검사
-  for(const color of COLORS){
-    const tiles = rack.filter(t=>!t.isJoker && t.color===color).sort((a,b)=>a.number-b.number);
-    const uniqTiles = [];
-    const seenNums = new Set();
-    tiles.forEach(t => {
-      if(!seenNums.has(t.number)) {
-        seenNums.add(t.number);
-        uniqTiles.push(t);
-      }
-    });
+  // --- [2단계] 내 패만 가지고 3장 런 완성 검사 ---
+  for (const color of COLORS) {
+    const tiles = rack.filter(t => !t.isJoker && t.color === color).sort((a,b)=>a.number-b.number);
+    const uniqTiles = []; const seenNums = new Set();
+    tiles.forEach(t => { if(!seenNums.has(t.number)) { seenNums.add(t.number); uniqTiles.push(t); } });
 
-    // 2-1) 순수 런 검사
     let run = [];
-    for(let i=0; i<uniqTiles.length; i++){
-      if(run.length===0 || uniqTiles[i].number === run[run.length-1].number+1) {
+    for (let i = 0; i < uniqTiles.length; i++) {
+      if (run.length === 0 || uniqTiles[i].number === run[run.length-1].number+1) {
         run.push(uniqTiles[i]);
-      } else { 
-        if(run.length>=3) return run; 
-        run=[uniqTiles[i]]; 
+      } else {
+        if (run.length >= 3) return { type: 'pure_rack', tiles: run };
+        run = [uniqTiles[i]];
       }
     }
-    if(run.length>=3) return run;
+    if (run.length >= 3) return { type: 'pure_rack', tiles: run };
 
-    // 2-2) 조커 대입 런 검사
     if (jokerCount >= 1 && uniqTiles.length >= 2) {
       for (let i = 0; i < uniqTiles.length; i++) {
         for (let j = i + 1; j < uniqTiles.length; j++) {
-          const t1 = uniqTiles[i];
-          const t2 = uniqTiles[j];
+          const t1 = uniqTiles[i]; const t2 = uniqTiles[j];
           const diff = t2.number - t1.number;
-
           if (diff === 1) {
-            if (t2.number < 13) {
-              return [t1, t2, jokers[0]];
-            } else if (t1.number > 1) {
-              return [jokers[0], t1, t2];
-            }
-          }
-          else if (diff === 2) {
-            return [t1, jokers[0], t2];
+            if (t2.number < 13) return { type: 'pure_rack', tiles: [t1, t2, jokers[0]] };
+            else if (t1.number > 1) return { type: 'pure_rack', tiles: [jokers[0], t1, t2] };
+          } else if (diff === 2) {
+            return { type: 'pure_rack', tiles: [t1, jokers[0], t2] };
           }
         }
       }
     }
   }
+
+  // --- [3단계] 보드판의 남는 타일을 빌려와서 내 패 2장과 새 그룹(Group) 만들기 ---
+  const board = Game.state.board;
+  for (let gi = 0; gi < board.length; gi++) {
+    const g = board[gi];
+    if (g.tiles.length >= 4 && isValidSet(g.tiles)) {
+      for (let ti = 0; ti < g.tiles.length; ti++) {
+        const borrowed = g.tiles[ti];
+        const remaining = g.tiles.filter(t => t.id !== borrowed.id);
+        if (isValidSet(remaining)) {
+          const matchingRack = rack.filter(t => !t.isJoker && t.number === borrowed.number && t.color !== borrowed.color);
+          const uniqColors = new Set();
+          const candidateTiles = [];
+          matchingRack.forEach(t => {
+            if (t.color !== borrowed.color && !uniqColors.has(t.color)) {
+              uniqColors.add(t.color);
+              candidateTiles.push(t);
+            }
+          });
+          if (candidateTiles.length >= 2) {
+            return {
+              type: 'borrow_board',
+              tiles: [...candidateTiles, borrowed],
+              borrowedTileId: borrowed.id,
+              sourceGroupIndex: gi
+            };
+          }
+        }
+      }
+    }
+  }
+
+  // --- [4단계] 보드판의 런(Run) 양끝에 내 패 1장 붙이기 ---
+  for (let gi = 0; gi < board.length; gi++) {
+    const g = board[gi];
+    if (isValidRun(g.tiles)) {
+      const first = g.tiles[0];
+      const last = g.tiles[g.tiles.length - 1];
+
+      if (first.number > 1 && !first.isJoker) {
+        const targetNum = first.number - 1;
+        const matchingTile = rack.find(t => !t.isJoker && t.color === first.color && t.number === targetNum);
+        if (matchingTile) {
+          return {
+            type: 'append_run',
+            tiles: [matchingTile],
+            targetGroupIndex: gi,
+            position: 'start'
+          };
+        }
+      }
+
+      if (last.number < 13 && !last.isJoker) {
+        const targetNum = last.number + 1;
+        const matchingTile = rack.find(t => !t.isJoker && t.color === last.color && t.number === targetNum);
+        if (matchingTile) {
+          return {
+            type: 'append_run',
+            tiles: [matchingTile],
+            targetGroupIndex: gi,
+            position: 'end'
+          };
+        }
+      }
+    }
+  }
+
   return null;
 }
 
