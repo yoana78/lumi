@@ -660,8 +660,8 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 <div id="flash-overlay"></div>
 
 <div class="screen active" id="lobby-screen">
-  <!-- 버전 표시 라벨 (v2.4) -->
-  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.4</div>
+  <!-- 버전 표시 라벨 (v2.5) -->
+  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.5</div>
 
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
@@ -1229,6 +1229,8 @@ document.getElementById('btn-connect').onclick = ()=>{
 
   socket.on('turnChanged', (data)=>{
     if (!Game.state) return;
+    comboCount = 0;
+    lastValidSetTime = 0;
     Game.state.turnIndex = data.turnIndex;
     if (data.board) Game.state.board = data.board;
     if (data.players) Game.state.players = data.players;
@@ -1385,6 +1387,8 @@ function setScore(tiles){ return getSetTotalScore(tiles); }
    게임 인프라 구동부
    ==================================================== */
 function initOnlineGame(roomPlayers, options, synchronizedDeck) {
+  comboCount = 0;
+  lastValidSetTime = 0;
   // 온라인 매칭 시작 시 이전 로컬 세이브 데이터는 확실히 삭제하여 이어하기 버그 예방
   localStorage.removeItem(SAVE_KEY);
   
@@ -1402,6 +1406,8 @@ function initOnlineGame(roomPlayers, options, synchronizedDeck) {
 }
 
 function startNewGame(){
+  comboCount = 0;
+  lastValidSetTime = 0;
   const n = Lobby.numPlayers; const players = []; const usedAvatars = [Lobby.selectedAvatar];
   const myNick = document.getElementById('input-nickname').value.trim() || '나';
   const startingTips = avAbility(Lobby.selectedAvatar)==='tip_bonus' ? 4 : 3;
@@ -1501,6 +1507,10 @@ function renderTileEl(t, draggable=true){
       el.classList.remove('dragging');
       window.draggedTileId = null;
     });
+    // 모바일 터치 시작 시점에 강제로 전역 매핑
+    el.addEventListener('touchstart', ()=>{
+      window.draggedTileId = t.id;
+    });
   }
   return el;
 }
@@ -1543,6 +1553,18 @@ function renderBoard(){
       e.dataTransfer.setData('offsetY', oy);
       window.dragOffsetX = ox;
       window.dragOffsetY = oy;
+    });
+    // 모바일 터치로 그룹을 잡기 시작한 시점에 전역 바인딩 선제 수행
+    handle.addEventListener('touchstart', e=>{
+      window.draggedGroupIndex = gi;
+      const rect = gEl.getBoundingClientRect();
+      const touch = e.touches[0] || e.changedTouches[0];
+      if (touch) {
+        const ox = touch.clientX - rect.left;
+        const oy = touch.clientY - rect.top;
+        window.dragOffsetX = ox;
+        window.dragOffsetY = oy;
+      }
     });
     handle.addEventListener('dragend', () => {
       window.draggedGroupIndex = null;
@@ -1725,6 +1747,8 @@ function effectiveTimeLimit(){ const p = currentPlayer(); let t = Game.state.tim
 let lastTimerWarnPlayed = -1;
 function startTurnTimer(){
   if (isOnlineGame) return; 
+  comboCount = 0;
+  lastValidSetTime = 0;
   clearInterval(Game.timerId);
   Game.state.timeLeft = effectiveTimeLimit();
   lastTimerWarnPlayed = -1;
@@ -2044,7 +2068,13 @@ document.getElementById('btn-sort').onclick = ()=>{
   renderRack(); toast('패를 '+(Game.state.sortMode==='number'?'숫자':'색상')+'순으로 정렬했어요');
 };
 
-document.getElementById('btn-undo').onclick = ()=>{ revertToSnapshot(); networkSync(); toast('이번 턴의 배치를 되돌렸어요'); };
+document.getElementById('btn-undo').onclick = ()=>{ 
+  comboCount = 0; 
+  lastValidSetTime = 0; 
+  revertToSnapshot(); 
+  networkSync(); 
+  toast('이번 턴의 배치를 되돌렸어요'); 
+};
 
 document.getElementById('btn-tip').onclick = ()=>{
   let targetUser = Game.state.players[0]; if(isOnlineGame && socket) targetUser = Game.state.players.find(p=>p.networkId === socket.id);
