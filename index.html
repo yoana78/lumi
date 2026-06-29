@@ -11,8 +11,6 @@
 <link rel="stylesheet" href="https://webfontworld.github.io/gmarket/GmarketSans.css">
 <script src="https://cdn.tailwindcss.com"></script>
 
-<!-- mobile-drag-drop 폴리필 제거됨 - 네이티브 터치 이벤트로 대체 -->
-
 <script>
   tailwind.config = {
     theme: {
@@ -651,8 +649,7 @@ button{font-family:'Outfit', 'GmarketSans', sans-serif; cursor:pointer; border:n
 <div id="flash-overlay"></div>
 
 <div class="screen active" id="lobby-screen">
-  <!-- 버전 표시 라벨 (v2.6) -->
-  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.6</div>
+  <div style="position: absolute; top: 12px; right: 16px; font-size: 11px; font-weight:700; color:rgba(255,255,255,0.4); pointer-events:none; z-index:10; font-family: 'Outfit', sans-serif;">v2.7</div>
 
   <div class="logo-wrap">
     <div class="logo">루미큐브 PLUS</div>
@@ -1230,14 +1227,17 @@ document.getElementById('btn-connect').onclick = ()=>{
     if (data.deck) Game.state.deck = data.deck;
     Game.state.turnSnapshot = snapshotTurnState();
     renderAll();
+
     if (!Game.state.gameOver && currentPlayer().type === 'ai') {
+      if (window.aiTurnTimeout) clearTimeout(window.aiTurnTimeout);
+      
       if (isOnlineGame) {
-        // 온라인 대전에서는 방 개설자(p0)가 대표로 AI의 행동을 계산 및 전송
-        if (myNetworkId === 'p0') {
-          setTimeout(runAITurn, 900);
+        const firstHuman = Game.state.players.find(p => p.type === 'human');
+        if (firstHuman && myNetworkId === firstHuman.id) {
+          window.aiTurnTimeout = setTimeout(runAITurn, 900);
         }
       } else {
-        setTimeout(runAITurn, 900);
+        window.aiTurnTimeout = setTimeout(runAITurn, 900);
       }
     }
   });
@@ -1828,7 +1828,11 @@ function advanceTurn(){
   Game.state.turnIndex = (Game.state.turnIndex+1) % Game.state.players.length;
   Game.state.turnSnapshot = snapshotTurnState();
   networkSync(); startTurnTimer();
-  if(!Game.state.gameOver && currentPlayer().type==='ai'){ setTimeout(runAITurn, 900); }
+  
+  if(!Game.state.gameOver && currentPlayer().type==='ai'){ 
+    if(window.aiTurnTimeout) clearTimeout(window.aiTurnTimeout);
+    window.aiTurnTimeout = setTimeout(runAITurn, 900); 
+  }
 }
 
 function endGame(winner){
@@ -2028,11 +2032,26 @@ function runAITurn(){
   const placed = newlyPlacedTiles();
   const ok = boardHasOnlyValidSets() && !Game.state.board.some(g=>g.tiles.length>0 && g.tiles.length<3);
   let success = false;
+  
   if(ok && placed.length>0){
     if(!p.melded){ if(setScore(placed)>=30){ p.melded = true; success = true; } } else success = true;
   }
-  if(!success){ revertToSnapshot(); if(Game.state.deck.length>0) p.rack.push(Game.state.deck.pop()); }
-  else { p.score += setScore(placed); if(p.rack.length===0){ endGame(p); return; } }
+  
+  if(!success){ 
+    revertToSnapshot(); 
+    if(Game.state.deck.length>0) p.rack.push(Game.state.deck.pop()); 
+  }
+  else { 
+    p.score += setScore(placed); 
+    if(p.rack.length===0){ 
+      if(isOnlineGame && socket) socket.emit('playerMove', Game.state); 
+      endGame(p); 
+      return; 
+    } 
+  }
+  
+  if (isOnlineGame && socket) socket.emit('playerMove', Game.state);
+  
   advanceTurn();
 }
 
